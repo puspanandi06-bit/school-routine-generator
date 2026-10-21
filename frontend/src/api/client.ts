@@ -1,4 +1,13 @@
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+function getApiBase(): string {
+  let base = (import.meta.env.VITE_API_URL || '/api').trim();
+  base = base.replace(/\/+$/, '');
+  if (base.startsWith('http') && !base.endsWith('/api')) {
+    base = `${base}/api`;
+  }
+  return base;
+}
+
+const API_BASE = getApiBase();
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;

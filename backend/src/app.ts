@@ -32,7 +32,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Health Check Endpoint
-app.get('/api/health', (req, res) => {
+app.get(['/health', '/api/health'], (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -41,8 +41,9 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Mount Main API Routes
+// Mount Main API Routes on both /api and root /
 app.use('/api', routes);
+app.use('/', routes);
 
 // Centralized Error Handler
 app.use(errorHandler);
