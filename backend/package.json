@@ -1,0 +1,46 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend API & Scheduling Engine for Smart School Routine Generator",
+  "main": "dist/server.js",
+  "scripts": {
+    "db:sync-provider": "tsx scripts/sync-provider.ts",
+    "db:generate": "npm run db:sync-provider && prisma generate",
+    "db:push": "npm run db:sync-provider && prisma db push",
+    "db:migrate": "npm run db:sync-provider && prisma migrate dev",
+    "seed": "npm run db:sync-provider && tsx prisma/seed.ts",
+    "dev": "npm run db:sync-provider && tsx watch src/server.ts",
+    "build": "npm run db:sync-provider && prisma generate && tsc",
+    "start": "node dist/src/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.7",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^20.17.0",
+    "@types/supertest": "^6.0.2",
+    "prisma": "^5.22.0",
+    "supertest": "^7.0.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

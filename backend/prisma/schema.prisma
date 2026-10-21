@@ -1,0 +1,262 @@
+// Prisma Schema for Smart School Routine Generator
+// Compatible with both PostgreSQL (production / Neon / Render) and SQLite (local self-contained dev)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model School {
+  id           String   @id @default(uuid())
+  name         String
+  code         String?
+  address      String?
+  phone        String?
+  email        String?
+  logoUrl      String?
+  academicYear String   @default("2025-2026")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users              User[]
+  classes            Class[]
+  teachers           Teacher[]
+  subjects           Subject[]
+  scheduleConfigs    ScheduleConfig[]
+  timetables         Timetable[]
+  teacherAssignments TeacherSubjectAssignment[]
+  classRequirements  ClassSubjectRequirement[]
+  teacherAvailabilities TeacherAvailability[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("ADMIN") // ADMIN, TEACHER, VIEWER
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([schoolId])
+}
+
+model Class {
+  id           String   @id @default(uuid())
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name         String   // e.g. "Grade 10" or "Class 8"
+  section      String   // e.g. "A", "B", "Alpha"
+  academicYear String   // e.g. "2025-2026"
+  classType    String   @default("NORMAL") // "NORMAL" | "PROVISIONAL"
+  roomNumber   String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subjectRequirements ClassSubjectRequirement[]
+  teacherAssignments  TeacherSubjectAssignment[]
+  timetableEntries    TimetableEntry[]
+
+  @@unique([schoolId, name, section, academicYear, classType])
+  @@index([schoolId, classType])
+}
+
+model Subject {
+  id                    String   @id @default(uuid())
+  schoolId              String
+  school                School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name                  String   // e.g. "Mathematics"
+  code                  String?  // e.g. "MATH"
+  color                 String   @default("#3b82f6") // Hex color
+  requiresConsecutive   Boolean  @default(false)
+  preferredPeriodsPerDay Int     @default(1)
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  teacherAssignments TeacherSubjectAssignment[]
+  classRequirements  ClassSubjectRequirement[]
+  timetableEntries   TimetableEntry[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+}
+
+model Teacher {
+  id                String   @id @default(uuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name              String
+  employeeId        String?
+  email             String?
+  phone             String?
+  maxPeriodsPerDay  Int      @default(5)
+  maxPeriodsPerWeek Int      @default(25)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  subjectAssignments TeacherSubjectAssignment[]
+  availabilities     TeacherAvailability[]
+  timetableEntries   TimetableEntry[]
+
+  @@unique([schoolId, email])
+  @@index([schoolId])
+}
+
+model TeacherSubjectAssignment {
+  id        String   @id @default(uuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  classId   String?  // Optional: if set, teacher assigned specifically to this class. If null, qualified for all classes
+  class     Class?   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, teacherId])
+  @@index([schoolId, subjectId])
+}
+
+model ClassSubjectRequirement {
+  id             String   @id @default(uuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classId        String
+  class          Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId      String
+  subject        Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  periodsPerWeek Int      @default(5)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([classId, subjectId])
+  @@index([schoolId, classId])
+}
+
+model TeacherAvailability {
+  id          String   @id @default(uuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherId   String
+  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int      // 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday
+  periodOrder Int      // 1, 2, 3... corresponding to Period.order
+  isAvailable Boolean  @default(true)
+  reason      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([teacherId, dayOfWeek, periodOrder])
+  @@index([schoolId, teacherId])
+}
+
+model ScheduleConfig {
+  id           String   @id @default(uuid())
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name         String   // e.g. "Main Academic Schedule"
+  scheduleType String   @default("NORMAL") // "NORMAL" | "PROVISIONAL"
+  isDefault    Boolean  @default(false)
+  workingDays  String   // JSON string array e.g. "[1,2,3,4,5,6]"
+  periodsPerDay Int     @default(7)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  periods      Period[]
+  breaks       Break[]
+  timetables   Timetable[]
+
+  @@index([schoolId, scheduleType])
+}
+
+model Period {
+  id               String         @id @default(uuid())
+  scheduleConfigId String
+  scheduleConfig   ScheduleConfig @relation(fields: [scheduleConfigId], references: [id], onDelete: Cascade)
+  name             String         // e.g. "Period 1"
+  order            Int            // 1, 2, 3...
+  startTime        String         // e.g. "09:00 AM"
+  endTime          String         // e.g. "09:45 AM"
+  isUnavailable    Boolean        @default(false)
+  type             String         @default("TEACHING") // "TEACHING" | "ASSEMBLY" | "ACTIVITY"
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  timetableEntries TimetableEntry[]
+
+  @@unique([scheduleConfigId, order])
+  @@index([scheduleConfigId])
+}
+
+model Break {
+  id               String         @id @default(uuid())
+  scheduleConfigId String
+  scheduleConfig   ScheduleConfig @relation(fields: [scheduleConfigId], references: [id], onDelete: Cascade)
+  name             String         // e.g. "Lunch Break", "Morning Break"
+  afterPeriod      Int            // Occurs after this period.order
+  startTime        String         // e.g. "12:15 PM"
+  endTime          String         // e.g. "01:00 PM"
+  durationMinutes  Int            @default(45)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([scheduleConfigId])
+}
+
+model Timetable {
+  id                    String         @id @default(uuid())
+  schoolId              String
+  school                School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  scheduleConfigId      String
+  scheduleConfig        ScheduleConfig @relation(fields: [scheduleConfigId], references: [id], onDelete: Restrict)
+  title                 String
+  timetableType         String         @default("NORMAL") // "NORMAL" | "PROVISIONAL"
+  academicYear          String
+  status                String         @default("DRAFT") // "DRAFT" | "PUBLISHED" | "ARCHIVED"
+  randomSeed            Int?
+  hasConflicts          Boolean        @default(false)
+  conflictDetails       String?        // JSON string of conflicts if any
+  generationDiagnostics String?        // JSON string of diagnostics & soft constraint scores
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  entries               TimetableEntry[]
+
+  @@index([schoolId, timetableType])
+  @@index([schoolId, academicYear])
+}
+
+model TimetableEntry {
+  id               String    @id @default(uuid())
+  timetableId      String
+  timetable        Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+  classId          String
+  class            Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId        String
+  subject          Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId        String
+  teacher          Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  dayOfWeek        Int       // 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun
+  periodOrder      Int       // 1..periodsPerDay
+  periodId         String?
+  period           Period?   @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  isManualOverride Boolean   @default(false)
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([timetableId, classId, dayOfWeek, periodOrder])
+  @@index([timetableId, teacherId, dayOfWeek, periodOrder])
+  @@index([timetableId, classId])
+}
